@@ -1,0 +1,88 @@
+# ------------------------------
+# Python bytecode and caches
+# ------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ------------------------------
+# Virtual environments
+# ------------------------------
+venv/
+.venv/
+env/
+ENV/
+
+# ------------------------------
+# Build and packaging artifacts
+# ------------------------------
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# ------------------------------
+# Tooling caches
+# ------------------------------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# ------------------------------
+# Jupyter / notebooks
+# ------------------------------
+.ipynb_checkpoints/
+
+# ------------------------------
+# Logs and temp files
+# ------------------------------
+*.log
+logs/
+tmp/
+temp/
+
+# ------------------------------
+# IDE/editor files
+# ------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ------------------------------
+# OS files
+# ------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ------------------------------
+# Project-specific heavy folders
+# Keep .gitkeep if you use placeholders
+# ------------------------------
+data/**
+!data/.gitkeep
+
+models/**
+!models/.gitkeep
+
+# Ignore common large model/data artifacts anywhere
+*.pt
+*.pth
+*.onnx
+*.h5
+*.ckpt
+*.pb
+*.tflite
+*.npz
+*.npy
+*.pkl
+*.joblib
+*.zip
+*.tar
+*.gz
+*.7z
