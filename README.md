@@ -1,96 +1,54 @@
-# Face Detection & Face Segmentation
+# Hệ thống Nhận diện và Phân vùng Khuôn mặt
 
-Dự án tập trung vào 2 bài toán thị giác máy tính liên quan đến khuôn mặt:
+Hệ thống cung cấp giải pháp nhận diện khuôn mặt (Face Detection) sử dụng thư viện `RetinaFace` và phân vùng khuôn mặt (Face Segmentation) sử dụng mô hình mạng nơ-ron `BiSeNet`. 
 
-- Face Detection: phát hiện vị trí khuôn mặt trong ảnh đông người.
-- Face Segmentation: tách chính xác vùng mặt (face mask) ở mức pixel.
+Toàn bộ hệ thống được thiết kế và tối ưu để **chỉ chạy trên CPU**.
 
-Mục tiêu ứng dụng chính là camera an ninh và nhận diện khuôn mặt trong đám đông.
+## Tính năng
+- **Nhận diện khuôn mặt**: Sử dụng thư viện RetinaFace.
+- **Phân vùng khuôn mặt**: Sử dụng cấu trúc `BiSeNet` 19 lớp tùy chỉnh, load weights có sẵn `weights/79999_iter.pth`.
+- **Giao diện Web**: Giao diện trực quan dùng Streamlit, cho phép tải ảnh lên và xem ngay kết quả.
+- **Kiểm thử tự động**: Viết bằng `pytest`, có sẵn script test cho từng phần.
 
-## Tổng quan nhanh
+## Cài đặt
 
-| Hạng mục | Nội dung |
-|---|---|
-| Chủ đề | Face Detection & Face Segmentation |
-| Detection task | Khuôn mặt trong ảnh đông người |
-| Segmentation task | Vùng mặt (face mask) |
-| Dataset Detection | WIDER FACE |
-| Dataset Segmentation | CelebAMask-HQ |
-| Mô hình Detection | RetinaFace |
-| Mô hình Segmentation | U-Net / Mask R-CNN |
-| Use case | Camera an ninh, nhận diện khuôn mặt trong đám đông |
+1. **Khởi tạo môi trường ảo (khuyến nghị)**:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # Trên Linux/Mac
+   venv\Scripts\activate     # Trên Windows
+   ```
 
-## Dataset sử dụng
+2. **Cài đặt thư viện phụ thuộc**:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-### 1) WIDER FACE (cho Detection)
-- Bộ dữ liệu chuẩn cho bài toán phát hiện khuôn mặt ngoài thực tế.
-- Bao gồm nhiều bối cảnh khó: đông người, che khuất, góc nghiêng, ánh sáng phức tạp.
+## Sử dụng
 
-### 2) CelebAMask-HQ (cho Segmentation)
-- Bộ dữ liệu phân vùng khuôn mặt chất lượng cao.
-- Phù hợp để học mask chi tiết vùng mặt, tóc, da, và các thành phần khuôn mặt.
-
-## Mô hình đề xuất
-
-### Detection: RetinaFace
-- Mạnh trên các trường hợp khuôn mặt nhỏ và đông người.
-- Tối ưu cho bài toán giám sát và nhận diện trong môi trường thực tế.
-
-### Segmentation: U-Net / Mask R-CNN
-- U-Net: đơn giản, hiệu quả, dễ huấn luyện cho semantic segmentation.
-- Mask R-CNN: mạnh hơn cho instance segmentation khi cần tách đối tượng rõ ràng.
-
-## Cấu trúc thư mục
-
-```
-face-detection-segmentation/
-├── README.md
-├── requirements.txt
-├── app/
-├── data/
-├── models/
-├── notebooks/
-└── src/
-	├── detection/
-	├── segmentation/
-	└── utils/
-```
-
-## Cài đặt môi trường
-
-Yêu cầu Python 3.9+.
-
+**1. Khởi chạy Giao diện (Streamlit)**:
 ```bash
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
+streamlit run app.py
 ```
+Giao diện sẽ được mở trên trình duyệt, bạn có thể tải ảnh lên để nhận diện.
 
-## Quy trình triển khai gợi ý
+**2. Chạy đánh giá trên tập Dataset (WIDER FACE / CelebAMask-HQ)**:
+```bash
+python scripts/evaluate.py
+```
+> Lưu ý: Cần đảm bảo dữ liệu đã được đặt tại `data/wider_face/` và `data/celebamask_hq/`.
 
-### Bước 1: Chuẩn bị dữ liệu
-- Tải và tổ chức WIDER FACE vào thư mục data cho detection.
-- Tải và tổ chức CelebAMask-HQ vào thư mục data cho segmentation.
+**3. Chạy Kiểm thử (Tests)**:
+```bash
+pytest -v tests/
+```
+Kiểm thử tự động sẽ chạy các mock test và in ra `Pass/Fail` chi tiết.
 
-### Bước 2: Huấn luyện detection
-- Huấn luyện RetinaFace trên tập detection.
-- Lưu trọng số vào thư mục models.
-
-### Bước 3: Huấn luyện segmentation
-- Huấn luyện U-Net hoặc Mask R-CNN trên CelebAMask-HQ.
-- Lưu trọng số vào thư mục models.
-
-### Bước 4: Suy luận và đánh giá
-- Detection: đánh giá độ chính xác phát hiện khuôn mặt trong ảnh đông người.
-- Segmentation: đánh giá chất lượng mask vùng mặt theo chỉ số IoU/Dice.
-
-## Ứng dụng thực tế
-
-- Hệ thống camera an ninh tại khu vực công cộng.
-- Theo dõi và phân tích mật độ khuôn mặt trong đám đông.
-- Tiền xử lý cho các hệ thống nhận diện khuôn mặt nâng cao.
-
-## Ghi chú
-
-- Thư mục data và models có thể rất lớn, nên không đưa trực tiếp lên GitHub.
-- Sử dụng file .gitignore để tránh đẩy dữ liệu thô, trọng số mô hình và file tạm.
+## Cấu trúc Dự án
+- `app.py`: Giao diện ứng dụng Streamlit.
+- `models/segmentation/bisenet.py`: Định nghĩa cấu trúc mạng BiSeNet.
+- `utils/detector.py`: Bộ xử lý nhận diện khuôn mặt (RetinaFace).
+- `utils/segmentor.py`: Bộ xử lý phân vùng khuôn mặt (BiSeNet).
+- `scripts/evaluate.py`: Kịch bản đánh giá mô hình.
+- `tests/`: Thư mục chứa các file kiểm thử unit test.
+- `weights/`: Nơi chứa file `79999_iter.pth`.
