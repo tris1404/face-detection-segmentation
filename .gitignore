@@ -1,88 +1,44 @@
-# ------------------------------
-# Python bytecode and caches
-# ------------------------------
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 
-# ------------------------------
-# Virtual environments
-# ------------------------------
+# Virtual Environments
 venv/
-.venv/
 env/
-ENV/
+.env
+.venv/
+env.bak/
+venv.bak/
 
-# ------------------------------
-# Build and packaging artifacts
-# ------------------------------
-build/
-dist/
-*.egg-info/
-.eggs/
-pip-wheel-metadata/
-
-# ------------------------------
-# Tooling caches
-# ------------------------------
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-.coverage.*
-htmlcov/
-
-# ------------------------------
-# Jupyter / notebooks
-# ------------------------------
-.ipynb_checkpoints/
-
-# ------------------------------
-# Logs and temp files
-# ------------------------------
-*.log
-logs/
-tmp/
-temp/
-
-# ------------------------------
-# IDE/editor files
-# ------------------------------
+# IDE / Editor folders
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# ------------------------------
-# OS files
-# ------------------------------
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# ------------------------------
-# Project-specific heavy folders
-# Keep .gitkeep if you use placeholders
-# ------------------------------
-data/**
-!data/.gitkeep
-
-models/**
-!models/.gitkeep
-
-# Ignore common large model/data artifacts anywhere
+# Datasets and Model Weights (Do not push large files to GitHub)
+data/
+datasets/
 *.pt
 *.pth
 *.onnx
-*.h5
-*.ckpt
-*.pb
-*.tflite
-*.npz
-*.npy
-*.pkl
-*.joblib
-*.zip
-*.tar
-*.gz
-*.7z
+*.engine
+weights/
+checkpoints/
+
+# Logs and outputs
+runs/
+logs/
+tensorboard/
+results/
+outputs/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
