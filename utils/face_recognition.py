@@ -10,6 +10,7 @@ import os
 from scipy.spatial.distance import cosine
 import json
 import logging
+from utils.detector import FaceDetector
 
 logger = logging.getLogger(__name__)
 
@@ -35,13 +36,14 @@ class FaceRecognizer:
         self.model_name = model_name
         self.metric = metric
         self.detector_backend = detector_backend
+        self.face_detector = FaceDetector() # Tái sử dụng RetinaFace detector
         
         # Lưu cấu hình nhưng không import DeepFace ngay để tránh load TensorFlow khi
         # chỉ import module (lazy load). Việc load model sẽ xảy ra khi thực sự cần.
         self._model_loaded = False
         self._deepface = None
 
-    def extract_embedding(self, img_rgb, enforce_detection=True):
+    def extract_embedding(self, img_rgb, enforce_detection=True, detector_backend=None):
         """
         Trích xuất embedding 512-chiều từ 1 ảnh RGB chứa 1 khuôn mặt.
         
@@ -49,6 +51,7 @@ class FaceRecognizer:
             img_rgb (np.ndarray): Ảnh RGB shape (H, W, 3)
             enforce_detection (bool): Nếu True, lỗi nếu không nhận ra mặt.
                                      Nếu False, trả về zero vector.
+            detector_backend (str): Ghi đè backend detection. Nếu là 'skip' sẽ không detect.
         
         Returns:
             np.ndarray: Embedding vector shape (512,) hoặc None nếu lỗi
@@ -77,10 +80,12 @@ class FaceRecognizer:
                 return None
 
             # Trích embedding bằng DeepFace
+            backend = detector_backend if detector_backend else self.detector_backend
+            
             embedding_objs = self._deepface.represent(
                 img_rgb,
                 model_name=self.model_name,
-                detector_backend=self.detector_backend,
+                detector_backend=backend,
                 enforce_detection=enforce_detection
             )
             
@@ -190,65 +195,40 @@ class FaceRecognizer:
             
             h, w = img_rgb.shape[:2]
             
-            # Detect faces bằng RetinaFace (via deepface)
-            # Note: DeepFace.extract_faces() cũng trả về bounding boxes
-            try:
-                # Lazy import DeepFace
-                if self._deepface is None:
-                    from deepface import DeepFace
-                    self._deepface = DeepFace
-
-                extracted_faces = self._deepface.extract_faces(
-                    img_rgb,
-                    detector_backend=self.detector_backend,
-                    enforce_detection=False  # Không lỗi nếu không tìm mặt
-                )
+            # Sử dụng FaceDetector (RetinaFace) từ utils/detector.py để đồng bộ
+            detections = self.face_detector.detect(img_rgb, conf_thresh=threshold)
+            
+            for face_obj in detections:
+                # face_obj structure từ FaceDetector:
+                # {'score': float, 'facial_area': [x1, y1, x2, y2]}
                 
-                for face_obj in extracted_faces:
-                    # Face_obj có structure:
-                    # {
-                    #   'face': face_array (224x224),
-                    #   'facial_area': {'x': x1, 'y': y1, 'w': width, 'h': height},
-                    #   'confidence': float
-                    # }
-                    
-                    facial_area = face_obj.get('facial_area', {})
-                    confidence = face_obj.get('confidence', 0.0)
-                    
-                    if confidence < threshold:
-                        continue
-                    
-                    # Extract coordinates
-                    x, y = facial_area.get('x', 0), facial_area.get('y', 0)
-                    face_w, face_h = facial_area.get('w', 0), facial_area.get('h', 0)
-                    x1, y1, x2, y2 = x, y, x + face_w, y + face_h
-                    
-                    # Bỏ qua faces quá nhỏ
-                    if face_w < 20 or face_h < 20:
-                        continue
-                    
-                    # Crop face từ ảnh gốc
-                    face_crop = img_rgb[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
-                    
-                    if face_crop.size == 0:
-                        continue
-                    
-                    # Trích embedding
-                    embedding = self.extract_embedding(face_crop, enforce_detection=False)
-                    
-                    if embedding is not None:
-                        faces.append({
-                            'bbox': (x1, y1, x2, y2),
-                            'embedding': embedding,
-                            'confidence': confidence
-                        })
+                confidence = face_obj.get('score', 0.0)
+                facial_area = face_obj.get('facial_area', [0, 0, 0, 0])
                 
-                logger.info(f"Detect {len(faces)} faces trong ảnh")
-                return faces
+                x1, y1, x2, y2 = facial_area
                 
-            except Exception as e:
-                logger.warning(f"Lỗi detect faces: {e}")
-                return faces
+                # Bỏ qua faces quá nhỏ
+                if (x2 - x1) < 20 or (y2 - y1) < 20:
+                    continue
+                
+                # Crop face từ ảnh gốc
+                face_crop = img_rgb[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
+                
+                if face_crop.size == 0:
+                    continue
+                
+                # Trích embedding - dùng detector_backend='skip' vì đã crop đúng mặt
+                embedding = self.extract_embedding(face_crop, enforce_detection=False, detector_backend='skip')
+                
+                if embedding is not None:
+                    faces.append({
+                        'bbox': (x1, y1, x2, y2),
+                        'embedding': embedding,
+                        'confidence': confidence
+                    })
+            
+            logger.info(f"RetinaFace detect {len(faces)} faces trong ảnh")
+            return faces
                 
         except Exception as e:
             logger.warning(f"Lỗi trong get_faces_in_image: {e}")

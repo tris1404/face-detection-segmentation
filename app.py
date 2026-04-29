@@ -1,7 +1,7 @@
 import streamlit as st
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFont, ImageDraw
 import os
 from datetime import datetime, timedelta
 import json
@@ -34,6 +34,19 @@ os.makedirs("data/students", exist_ok=True)
 os.makedirs("data/db", exist_ok=True)
 os.makedirs("data/attendance_reports", exist_ok=True)
 os.makedirs("data/sessions", exist_ok=True)
+
+def draw_text_vietnamese(img, text, position, color=(0, 255, 0), font_size=20):
+    """Vẽ chữ tiếng Việt có dấu lên ảnh OpenCV (numpy array)."""
+    img_pil = Image.fromarray(img)
+    draw = ImageDraw.Draw(img_pil)
+    # Thử load font Arial hỗ trợ Unicode trên Windows
+    font_path = "C:/Windows/Fonts/arial.ttf"
+    try:
+        font = ImageFont.truetype(font_path, font_size)
+    except:
+        font = None # Fallback nếu không tìm thấy font
+    draw.text(position, text, font=font, fill=color)
+    return np.array(img_pil)
 
 
 def save_class_image(image_rgb):
@@ -235,9 +248,9 @@ with tab4:
         "Ngưỡng nhận diện (Cosine Similarity):",
         min_value=0.1,
         max_value=0.9,
-        value=0.4,
+        value=0.3,
         step=0.05,
-        help="Càng cao = càng khó khớp. Thấp = dễ nhầm. Mặc định 0.4 (tối ưu)"
+        help="Càng cao = càng khó khớp. Thấp = dễ nhầm. Mặc định 0.3 (đã thắt chặt)"
     )
     
     # --- UPLOAD ẢNH LỚP ---
@@ -290,12 +303,15 @@ with tab4:
                     
                     # Vẽ bounding box lên ảnh
                     img_det = img_class_rgb.copy()
+                    h_img, w_img = img_class_rgb.shape[:2]
+                    thickness = max(2, int(min(h_img, w_img) / 400))
+                    
                     for i, face in enumerate(detected_faces):
                         x1, y1, x2, y2 = face['bbox']
-                        cv2.rectangle(img_det, (x1, y1), (x2, y2), (0, 255, 0), 3)
+                        cv2.rectangle(img_det, (x1, y1), (x2, y2), (0, 255, 0), thickness)
                         # Đánh số thứ tự mặt
                         cv2.putText(img_det, str(i+1), (x1, y1-10), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
+                                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), thickness)
                     
                     st.image(img_det, caption="Ảnh sau khi Face Detection", use_container_width=True)
 
@@ -362,39 +378,58 @@ with tab4:
                         
                         print(f"Đang so sánh {len(detected_faces)} mặt với {len(db_students_data)} sinh viên trong DB...")
                         
-                        # 4. So sánh từng detected face với DB
-                        matched_faces = {}
-                        step3_details = []
+                        # 4. Tìm tất cả các cặp match tiềm năng
+                        potential_matches = []
                         
                         for face_idx, detected_face in enumerate(detected_faces):
                             face_embedding = detected_face['embedding']
-                            best_match = None
-                            best_similarity = 0.0
-                            
                             for db_sv in db_students_data:
                                 is_match, similarity = recognizer.compare_embeddings(
                                     face_embedding,
                                     db_sv['embedding'],
                                     threshold=threshold
                                 )
-                                
-                                if is_match and similarity > best_similarity:
-                                    best_similarity = similarity
-                                    best_match = db_sv
+                                if is_match:
+                                    potential_matches.append({
+                                        'face_idx': face_idx,
+                                        'student_obj': db_sv,
+                                        'similarity': similarity
+                                    })
+                        
+                        # 5. Greedy Matching 1-1: Ưu tiên cặp có similarity cao nhất
+                        potential_matches.sort(key=lambda x: x['similarity'], reverse=True)
+                        
+                        matched_faces = {}
+                        used_faces = set()
+                        used_students = set()
+                        
+                        for match in potential_matches:
+                            f_idx = match['face_idx']
+                            s_id = match['student_obj']['id']
                             
-                            if best_match:
-                                matched_faces[face_idx] = {
-                                    'student_id': best_match['id'],
-                                    'student_name': best_match['ho_ten'],
-                                    'mssv': best_match['mssv'],
-                                    'similarity': best_similarity
+                            if f_idx not in used_faces and s_id not in used_students:
+                                matched_faces[f_idx] = {
+                                    'student_id': s_id,
+                                    'student_name': match['student_obj']['ho_ten'],
+                                    'mssv': match['student_obj']['mssv'],
+                                    'similarity': match['similarity']
                                 }
-                                detail_text = f"✅ Mặt {face_idx+1} → **{best_match['ho_ten']}** (score: {best_similarity:.2f})"
+                                used_faces.add(f_idx)
+                                used_students.add(s_id)
+                                print(f"Match OK: Face {f_idx+1} -> {match['student_obj']['ho_ten']} ({match['similarity']:.4f})")
+
+                        # Tạo danh sách chi tiết cho UI
+                        step3_details = []
+                        for face_idx in range(len(detected_faces)):
+                            if face_idx in matched_faces:
+                                m = matched_faces[face_idx]
+                                detail_text = f"✅ Mặt {face_idx+1} → **{m['student_name']}** (score: {m['similarity']:.2f})"
                             else:
-                                detail_text = f"❌ Mặt {face_idx+1} → **Không nhận ra** (score cao nhất: {best_similarity:.2f})"
+                                detail_text = f"❌ Mặt {face_idx+1} → **Không nhận ra**"
                             
                             step3_details.append(detail_text)
-                            print(f"Kết quả {detail_text}")
+                            if "❌" in detail_text:
+                                print(f"Kết quả: Face {face_idx+1} -> Unknown")
 
                         with st.expander("BƯỚC 3 - Chi tiết so sánh Embedding", expanded=False):
                             for detail in step3_details:
@@ -414,6 +449,8 @@ with tab4:
                         
                         # 6. Vẽ ảnh kết quả tổng hợp
                         img_result = img_class_rgb.copy()
+                        h_res, w_res = img_result.shape[:2]
+                        thickness_res = max(2, int(min(h_res, w_res) / 400))
                         
                         for face_idx, detected_face in enumerate(detected_faces):
                             x1, y1, x2, y2 = detected_face['bbox']
@@ -426,15 +463,14 @@ with tab4:
                                 text = "Unknown"
                                 color = (0, 0, 255)
                             
-                            cv2.rectangle(img_result, (x1, y1), (x2, y2), color, 2)
-                            cv2.putText(
-                                img_result,
-                                text,
-                                (x1, y1 - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX,
-                                0.5,
-                                color,
-                                2
+                            cv2.rectangle(img_result, (x1, y1), (x2, y2), color, thickness_res)
+                            # Dùng PIL để vẽ text tiếng Việt có dấu
+                            img_result = draw_text_vietnamese(
+                                img_result, 
+                                text, 
+                                (x1, y1 - 25), 
+                                color, 
+                                font_size=18
                             )
                         
                         # 7. Hiển thị kết quả cuối cùng

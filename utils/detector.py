@@ -112,7 +112,11 @@ class FaceDetector:
 
     def draw_faces(self, img_rgb, faces, color=(0, 255, 0)):
         res_img = img_rgb.copy()
+        h, w = img_rgb.shape[:2]
+        # Độ dày nét vẽ tùy theo độ phân giải ảnh (tối thiểu là 2)
+        thickness = max(2, int(min(h, w) / 400))
+        
         for face in faces:
             box = face['facial_area']
-            cv2.rectangle(res_img, (box[0], box[1]), (box[2], box[3]), color, 1)
+            cv2.rectangle(res_img, (box[0], box[1]), (box[2], box[3]), color, thickness)
         return res_img
