@@ -176,7 +176,7 @@ class Database:
             student_id (int): ID sinh viên
         
         Returns:
-            bool: True nếu thành công
+            tuple: (success: bool, message: str)
         """
         try:
             with self.get_connection() as conn:
@@ -189,11 +189,11 @@ class Database:
                 cursor.execute("DELETE FROM students WHERE id = ?", (student_id,))
                 
                 logger.info(f"Xóa sinh viên ID: {student_id}")
-                return True
+                return True, "Xóa sinh viên thành công"
                 
         except Exception as e:
             logger.error(f"Lỗi delete_student: {e}")
-            return False
+            return False, f"Lỗi xóa sinh viên: {str(e)}"
 
     def get_all_students(self):
         """
